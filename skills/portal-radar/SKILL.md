@@ -55,3 +55,21 @@ kill-list, whitespace candidates (max 3).
 
 Rules: never fabricate play counts/ratings (mark unseen as null); state when a
 page failed to load (partial coverage) instead of skipping silently.
+
+## Pitfalls (from production run 2026-08-15)
+- Poki /en returns an HTTP-404 wrapper page through jina.ai, but the "Popular
+  this week" rail still renders — capture the rail, mark Poki coverage partial.
+  Poki game pages (/en/g/<slug>) work fine and expose rating + votes + likes
+  ("Rating 4.2 (182,343 votes)", "146.8K Like", "63.1K Dislike").
+- CrazyGames play counts are JS-rendered: absent from jina markdown. Set
+  plays=null honestly. Rating (6-month), release month, engine, developer,
+  and tags WITH counts ARE present on detail pages — fetch
+  https://www.crazygames.com/game/<slug> for those; listing pages show none.
+- Slug extraction: `game/[a-z0-9-]*` (CrazyGames), `en/g/[a-z0-9-]*` (Poki).
+- jina.ai keyless rate-limits: sleep 1-4s between detail fetches, retry 3x
+  on empty/undersized responses (valid pages are >2KB).
+- Concept cards: templates/concept-card.md in this skill dir — one card per
+  whitespace candidate (mechanic / one structural twist / theme / testability
+  / build cost / asset plan / risks / evidence links). Research proposes,
+  kill-gate decides; never build.
+
