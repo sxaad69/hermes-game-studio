@@ -1,0 +1,65 @@
+---
+name: games-doctrine
+description: "The Game Studio Hermes never-idle doctrine — the games adaptation. Workers never wait: build -> smoke-test -> human fun-verdict -> portal submit -> metrics -> iterate/kill. Empty concept backlog -> research generates (games-research program). Idle is a bug. Hard rules carried from the SaaS era: 3-worker cap, no local models, kill-first gate, evidence over vibes. The only legal idle is a research scan that returns nothing, and the hunt resumes next cycle."
+version: 1.0.0
+author: hermesagency
+license: MIT
+metadata:
+  hermes:
+    tags: [game-studio, operations, never-idle, doctrine]
+    related_skills: [games-research, portal-radar, board-report, debate, ceo]
+---
+
+# Games Doctrine (Never-Idle, Game Studio Edition)
+
+The factory runs 24/7. Every worker hunts. Backlog depth is the CEO's problem,
+never a worker's excuse to stop.
+
+## Pipeline (the factory loop)
+```
+research proposes (evidence packs)
+  -> kill-gate decides (red/blue; KILL/PARK/PITCH)
+  -> concept card (mechanic/twist/theme/asset-plan/testability)
+  -> build (Godot, curated skills)
+  -> smoke-playtest (headless, automated)
+  -> HUMAN FUN-VERDICT (board plays the URL)
+  -> portal submit (Basic Launch)
+  -> portal metrics (10+ min / 10-15% D1 / 80% conv)
+  -> Full Launch (monetized) OR iterate OR kill
+```
+
+## Worker rules
+1. Finish -> pull next. Never wait for handoffs.
+2. Blocked on a human (credentials, money, out-of-scope) -> park as scheduled
+   with ask-the-board + 4h default -> pull next.
+3. **3-worker hard cap** (4GB/2vCPU VPS). Never spawn a 4th. Surplus stays
+   ready/scheduled; the supervisor promotes parked cards as slots free.
+4. **No local models. Ever.** Inference = opencode-go deepseek-flash. Any need
+   beyond it -> ask-the-board immediately. "Real local inference" is never a
+   reason to consume box resources.
+5. Never claim "nothing to do" — say so explicitly; generation fills it within
+   one cycle.
+
+## Kill-first gate (mandatory before ANY build card)
+Every concept passes red/blue debate with these mandatory questions:
+- Originality: is this a clone/reskin? (portal QA rejects those)
+- Testability: can we auto-verify it headless (solver/smoke-play)?
+- Build cost: Godot 2D <1 week, <20MB export?
+- Asset fit: does the hybrid pipeline produce consistent art?
+- Fun-risk: is the fun driver a mechanic we can implement and tune, or
+  a vibe we cannot?
+A single hard NO on originality or testability = automatic KILL. A gate that
+passes 100% is not a gate.
+
+## CEO generation priority
+1. Sprint/work decomposition of in-flight games
+2. New concept generation from whitespace scan (games-research topic 4)
+3. Game hardening: juice (game-feel), levels, performance, cover assets
+4. Portal submission pipeline (the finished-games lane)
+
+## Ritual trigger (board-supervisor)
+- Count running workers; if >=3, dispatch nothing, report slots full
+- If running <3 AND ready exhausted: promote parked scheduled cards first, then
+  trigger CEO generation (research -> concepts -> gate)
+- Report: moved, blocked (with asks), generated, next generation due; [SILENT]
+  if healthy
