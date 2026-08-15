@@ -43,6 +43,19 @@ Use the chromium-cdp daemon (CDP 127.0.0.1:9222) + Playwright MCP:
 navigate to `http://127.0.0.1:8080/`, assert load <10s, reach gameplay,
 inject inputs, screenshot. Full procedure in `skills/smoke-playtest/SKILL.md`.
 
+## Public playtest URL (Cloudflare quick tunnel)
+The games server (nginx on port 8080) is fronted by a Cloudflare quick tunnel
+so every playtest gets a public https URL without a domain:
+
+```bash
+systemctl status cf-games                 # active = tunnel up
+journalctl -u cf-games | rg -o 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1
+```
+
+The URL changes on each tunnel restart (ephemeral). For a stable URL during a
+playtest session, keep the tunnel running and send the current URL to the board.
+Unit file: /etc/systemd/system/cf-games.service.
+
 ## Size discipline
 - Godot web runtime is ~25-35MB raw; brotli-compressed serving + asset
   compression (texture VRAM/Ogg audio) + stripping unused modules gets a 2D
