@@ -66,9 +66,32 @@ CrazyGames SDK changelog, Godot web-export regressions, browser API shifts
 (SharedArrayBuffer/COOP-COEP), engine-specific portal wins. Feed the build and
 export pipeline.
 
+## Concept card requirements
+
+Every whitespace scan run MUST produce max 3 concept cards, and of those at
+least 1 MUST be an **agent-native concept** — a game whose design specifically
+exploits the factory's structural edge (procedural level generation +
+automated solvability/win-loss verification + headless smoke-play) such that
+no human team could produce the same depth at the same cost. Example: a puzzle
+with 1,000 auto-verified generated levels, or a roguelike whose runs are
+machine-tuned. The other 1-2 may be portal-derivative (proven mechanic + twist).
+A scan that returns only portal-derivative cards has failed this requirement.
+
+Each card uses the concept-card template at the repo path
+`/root/hermes-game-studio/templates/concept-card.md` (copy it into the task
+workspace; do NOT create a divergent copy in a skill dir).
+
+Each card ends with a one-line scored recommendation so the kill-gate has an
+ordering:
+
+```
+SCORED RECOMMENDATION: <rank 1-3> — PROBABILITY-OF-HIT (high/med/low) —
+REASON: <one line: why this is the factory's best shot this batch>
+```
+
 ## Delivery contract
 
 Every run ends with evidence packs → red/blue debate → top 1-3 concept cards
-(mechanic/twist/theme/asset-plan/testability) → kill-gate. Research never
-skips the gate. A run that returns "nothing solid this window" is a valid,
-honest outcome — never pad, never force a winner.
+(mechanic/twist/theme/asset-plan/testability/scored-recommendation) →
+kill-gate. Research never skips the gate. A run that returns "nothing solid
+this window" is a valid, honest outcome — never pad, never force a winner.

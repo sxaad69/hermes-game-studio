@@ -11,3 +11,5 @@
 - FUN RISK: <the one thing most likely to make it not-fun, and how we'd detect it>
 - KILL-GATE VERDICT: <from red/blue debate: KILL | PARK | PITCH-TO-BOARD>
 - HUMAN FUN-VERDICT: <PENDING — board plays URL before portal submit>
+- AGENT-NATIVE EDGE: <yes/no — does this exploit procedural-gen + solver + headless-smoke advantage?>
+- SCORED RECOMMENDATION: <rank 1-3> — PROBABILITY-OF-HIT (high/med/low) — REASON: <one line>

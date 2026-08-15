@@ -37,6 +37,16 @@ Weekly sweep of the two main portals to keep the factory's category map fresh.
 - WHITESPACE: proven mechanic with few or no games in a given theme/skin.
 - NEW: genuinely novel mechanic no prior game used.
 
+## Data-completeness fallback
+Do NOT declare a field null on the first miss. For each game, before marking
+a field missing, attempt:
+1. The game's own detail page (jina.ai reader) for plays/votes/developer.
+2. The portal's tag/search page for that game title.
+3. Only if both fail, write null AND note `"fetch_failed": true` in the row
+   so the next run knows to re-attempt (backfill pass). Never fabricate a
+   number; a verified-null with a re-attempt marker is more useful to the
+   factory than a silent gap.
+
 ## Output
 Append one JSONL row per game to the shared radar dataset:
 `~/.hermes/company-memory/radar.jsonl` (create if missing). Write a compact
