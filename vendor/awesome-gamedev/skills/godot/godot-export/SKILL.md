@@ -99,6 +99,32 @@ func _ready() -> void:
   `Cross-Origin-Embedder-Policy: require-corp` (cross-origin isolation for
   `SharedArrayBuffer`). Must be served over HTTP(S), not opened as a `file://`. itch.io has
   a "SharedArrayBuffer support" toggle for this.
+- **Game refuses to start on plain-http public IPs (Secure Context).** The generated
+  loader (`Engine.getMissingFeatures`) unconditionally requires a secure context, even
+  with threads disabled — `http://<public-ip>:port` fails the check and the shell shows
+  an error notice instead of the game. localhost/127.0.0.1 counts as secure, so QA on
+  localhost masks this. If the deployment must stay plain-http, post-process the
+  generated `index.js` after every export to drop the `isSecureContext` missing-feature
+  push (game uses only WebGL2/fetch/IndexedDB, all available on insecure origins).
+- **No audio on plain http (AudioWorklet).** Godot's web audio driver requires
+  AudioWorklet, which Chrome only exposes in secure contexts. On an insecure origin the
+  engine logs "All audio drivers failed, falling back to the dummy driver" — the game
+  runs silently. Reproducible: public-IP runs fail, localhost runs pass
+  (`window.isSecureContext` / `audioWorklet` probe). Only HTTPS fixes it; plan audio QA
+  on a secure origin and warn stakeholders about http-only deployments.
+- **Mobile browsers: virtual keyboard never appears when tapping a LineEdit.** Two export
+  defaults cause this. (1) Godot's default HTML shell ships
+  `<meta name="viewport" content="width=device-width, user-scalable=no, ...">` — iOS
+  Safari refuses to summon the keyboard when `user-scalable=no` is set. Fix: set
+  `html/head_include` in `export_presets.cfg` to emit a later viewport meta with
+  `user-scalable=yes` (last meta wins; the shell default stays, so re-exports keep the
+  fix). (2) The engine's hidden-textarea keyboard fallback is gated on
+  `html/experimental_virtual_keyboard` — it defaults to `false`; set it to `true` so
+  `GodotConfig.virtual_keyboard` enables `DisplayVK` on touch devices (Android + desktop
+  touch). Verify after patching: `grep -o 'user-scalable=[a-z]*\|experimentalVK[^,]*'
+  build/web/index.html` should show `user-scalable=yes` and `"experimentalVK":true`. This
+  also breaks headless/QA bots that rely on the keyboard — re-check `text_submitted` flows
+  after changing it.
 - **Writing to `res://` at runtime fails** in exports (read-only, packed). Use `user://`.
 - **Missing resources in the build.** Non-resource files (e.g. external `.json`, `.txt`)
   are not auto-included — add them via the preset's *Resources > Filters to export
