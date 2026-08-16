@@ -1,7 +1,11 @@
 #!/bin/bash
-# Portal radar sweep — fetch new/hot pages from CrazyGames + Poki via jina.ai.
+# Portal radar sweep — JINA FALLBACK PATH (plan Task 8 Step 2).
+# Primary is charts-sweep.sh (CDP-driven, real plays). This script exists for
+# when the chromium-cdp daemon (127.0.0.1:9222) is unavailable: it fetches
+# new/hot pages from CrazyGames + Poki via jina.ai and dumps normalized .txt
+# per page. jina misses JS-rendered play counts (plays=null) — that's why the
+# CDP tool replaced it.
 # Usage: portal-radar.sh [output_dir]
-# Output: normalized .txt dump per page (post-processing is the worker's job).
 set -u
 OUT="${1:-/tmp/radar}"
 mkdir -p "$OUT"

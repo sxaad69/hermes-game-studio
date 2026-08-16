@@ -12,22 +12,35 @@ metadata:
 
 # Portal Radar
 
-Weekly sweep of the two main portals to keep the factory's category map fresh.
+Weekly sweep of the topping-games portals to keep the factory's category map fresh.
+PRIMARY FETCH: `tools/charts/fetch_charts.py` (CDP-driven, plan Task 8) — sees
+JS-rendered play counts (real `plays`, fixes the historical plays=null gap).
+jina.ai is now the FALLBACK only (when the CDP daemon on 127.0.0.1:9222 is down).
 
-## Sources (keyless, verified)
-- CrazyGames: /new, /hot, category pages (/c/puzzle, /c/arcade, etc.)
-- Poki: /en (popular this week), /en/puzzle, /en/skill
-- Fetch via jina.ai reader: `https://r.jina.ai/<url>` (works without a key;
-  handles JS-walled pages the portals' own docs do not)
+Run: `python3 /root/hermes-game-studio/tools/charts/fetch_charts.py`
+(or `/root/hermes-game-studio/scripts/charts-sweep.sh`).
+
+## Sources (CDP, verified 2026-08-16)
+- CrazyGames: /top (client-side API), /new and /hot (SSG __NEXT_DATA__) — all
+  carry `totalPlays` + `totalLikes` per game (real numbers).
+- Poki: /en homepage rail → detail pages. JSON-LD exposes rating + votes;
+  clicking the AGREE consent button unlocks Like/Dislike counts. Poki does not
+  expose play counts (plays=null, honest).
+- itch.io: top-rated genre-puzzle / genre-arcade listings — rating + rating
+  count per game; detail "Made with" row = engine, download file sizes = MB.
+  itch.io does not expose view counts on this layout (plays=null, honest).
+- Steam: top-sellers search — price, discount, review label/%/count (in
+  data-tooltip-html on .search_review_summary). No public play counts.
 
 ## Record per game
 ```
-- name, url
-- category / tags
-- mechanics (inferred from title/desc/tags)
-- plays (if shown), rating (if shown)
-- cover style (screenshot description)
-- age (weeks since first seen, from prior runs)
+- name, url, slug (dedupe key)
+- source (surface tag; multi-surface rows joined with "+")
+- plays (real, where exposed), likes, rating, rating_votes
+- category / tags, developer, released
+- engine / sdk / file_size_mb (monetization comparators, Task 7 hook)
+- steam: price, original_price, discount, review_label/percent/count
+- cover style, age (weeks since first seen), notes
 ```
 
 ## Detection rules
