@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LANDING ORDER — feeler prototype (greybox, throwaway)</title>
+<style>
+  html,body{margin:0;padding:0;background:#04101a;height:100%;overflow:hidden}
+  #wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%}
+  canvas{border:1px solid #143a4a;box-shadow:0 0 40px rgba(30,120,160,.25);cursor:pointer}
+  #foot{color:#3f7a8f;font:11px monospace;margin-top:6px}</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="c" width="900" height="640"></canvas>
+<div id="foot">LANDING ORDER feeler — greybox, throwaway (rule-12 gate) · click a plane, then a runway to reroute / HOLD circle to hold · click a queue chip to make it NEXT · SPACE pause · R restart · M mute</div>
+</div>
+<script>
+"use strict";
+/* LANDING ORDER — most-viable feeler (early-prototype gate, rule 12).
+ * QUESTION: is the ATC tick-based ordering loop "flying" or "queueing"?
+ * Sim fidelity: build-spec-02 §1.1 fuel rule (fuel = margin x minimal_ticks_to_land).
+ * Interaction: spec §2 — the queue strip IS the plan; player REORDERS/reroutes it.
+ * Tick-based, integer cells, no physics. Throwaway code. Never promoted.
+ */
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const CELL = 12, W = 75, H = 40;            // sky: 75x40 cells (900x480), strip below
+const THRESH = 38, ROLL_END = 32, ROLL_TICKS = 6, BUSY_TICKS = 6;
+const RWY_X0 = 20, RWY_X1 = 44;             // runway strip cols
+const ROW_A = 14, ROW_B = 28, HOLD_C = {x: 12, y: 21};
+const SPAWN_MIN = 44, SPAWN_MAX = 74;       // approach spawn cols (right of threshold)
+const TPS = 4;                              // ticks per second (readable, not reflex)
+
+// ---------- seeded RNG (deterministic patterns) ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+
+// ---------- tiny audio (greybox blips; muted until first gesture) ----------
+let AC=null, muted=false;
+function ac(){ if(!AC){ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(AC&&AC.state==='suspended')AC.resume(); return AC; }
+function beep(f,dur,type,vol,slide){ if(muted)return; const a=ac(); if(!a)return; const o=a.createOscillator(),g=a.createGain();
+  o.type=type||'square'; o.frequency.value=f; if(slide)o.frequency.exponentialRampToValueAtTime(slide,a.currentTime+dur);
+  g.gain.value=(vol||0.08); g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+dur);
+  o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime+dur); }
+const sfx = {
+  spawn:  ()=>{beep(880,0.05,'sine',0.05);},
+  touchdown: ()=>{beep(440,0.08,'triangle',0.09,880); beep(880,0.06,'sine',0.05);},
+  goaround: ()=>{beep(300,0.12,'sawtooth',0.05,220);},
+  warning: ()=>{beep(660,0.07,'square',0.05); setTimeout(()=>beep(660,0.07,'square',0.05),90);},
+  incident: ()=>{beep(180,0.25,'sawtooth',0.09,90);},
+  win:     ()=>{[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.12,'triangle',0.08),i*110));},
+  fail:    ()=>{[392,311,233].forEach((f,i)=>setTimeout(()=>beep(f,0.18,'sawtooth',0.07),i*140));},
+};
+
+// ---------- levels (density ramp; margin story = spec §1.1 T1/T2/T3) ----------
+const LEVELS = {
+  1: {name:'TWO IN A ROW', planes:2, rwys:['A'],      hold:false, margin:3.0,  spacing:16, seed:101, hint:true},
+  2: {name:'TWIN STRIPS',  planes:4, rwys:['A','B'],  hold:false, margin:3.0,  spacing:13, seed:202, hint:false},
+  3: {name:'STACK UP',     planes:6, rwys:['A','B'],  hold:true,  margin:2.25, spacing:11, seed:303, hint:false},
+  4: {name:'PRESSURE',     planes:8, rwys:['A','B'],  hold:true,  margin:1.8,  spacing:9,  seed:404, hint:false},
+};
+const RWY_INFO = {A:{row:ROW_A,label:'RUNWAY A'}, B:{row:ROW_B,label:'RUNWAY B'}};
+
+// ---------- state ----------
+let S = null;
+let paused = false, speedMul = parseFloat(new URLSearchParams(location.search).get('speed')||'1');
+if(!(speedMul>=1)) speedMul=1;
+
+function makeState(lvl){
+  const L = LEVELS[lvl] || LEVELS[1];
+  const rng = mulberry32(L.seed);
+  const planes=[], spawnQ=[];
+  for(let i=0;i<L.planes;i++){
+    const row = (L.rwys.length>1 && rng()<0.5) ? ROW_B : ROW_A;
+    const x = SPAWN_MIN + Math.floor(rng()*(SPAWN_MAX-SPAWN_MIN+1));
+    const runway = row===ROW_B?'B':'A';
+    const minimal = Math.max(10, (x-THRESH) + ROLL_TICKS);
+    const fuel = Math.round(L.margin * minimal);
+    const p = {id:i, cs:'NX-'+String(10+i), x, y:row, targetRow:row, runway,
+               fuel, margin:L.margin, minimal, slack:null, landed:false, wait:true,
+               state:'approach', holdT:0, spawnAt:i*L.spacing+Math.floor(rng()*4)};
+    planes.push(p); spawnQ.push(p);
+  }
+  spawnQ.sort((a,b)=>a.spawnAt-b.spawnAt);
+  return {
+    level:lvl, L, tick:0, phase:'play',
+    planes, spawnQ, spawnNext:spawnQ.length?spawnQ[0].spawnAt:Infinity,
+    queues:{A:[],B:[]}, holdQ:[], runwayBusy:{A:0,B:0},
+    incidents:0, goArounds:0, landings:0, score:0, critical:0,
+    events:[], selected:null, hint:null, guided:false,
+    lastWarning:0, flash:null, nearMissPairs:{}, slackStats:null,
+  };
+}
+
+// ---------- queue helpers ----------
+function queueOf(s, p){ return p.runway ? s.queues[p.runway] : null; }
+function isFront(s,p){ const q=queueOf(s,p); return !!q && q.length>0 && q[0]===p.id; }
+
+// ---------- actions (the ONLY verbs; UI and bot share these) ----------
+function assign(s, id, rwy){
+  const p=s.planes[id]; if(!p||p.landed||p.state==='rolling'||p.state==='hold') return false;
+  if(!s.L.rwys.includes(rwy) || p.runway===rwy) return false;
+  const oldQ=queueOf(s,p); if(oldQ){ const i=oldQ.indexOf(id); if(i>=0) oldQ.splice(i,1); }
+  p.runway=rwy; p.targetRow=RWY_INFO[rwy].row;
+  s.queues[rwy].push(id);
+  log(s,'REROUTE '+p.cs+' → '+rwy);
+  return true;
+}
+function makeNext(s, id){
+  const p=s.planes[id]; if(!p||!p.runway||p.state==='hold'||p.state==='rolling'||p.landed) return false;
+  const q=s.queues[p.runway]; const i=q.indexOf(id);
+  if(i>0){ q.splice(i,1); q.unshift(id); log(s,'ORDER: '+p.cs+' NEXT'); }
+  advanceHint(s, 'chip');
+  return true;
+}
+function sendHold(s, id){
+  const p=s.planes[id]; if(!p||p.landed||p.state==='rolling'||p.state==='hold') return false;
+  if(!s.L.hold) return false;
+  const q=queueOf(s,p); if(q){ const i=q.indexOf(id); if(i>=0) q.splice(i,1); }
+  p.state='hold'; p.holdT=0; s.holdQ.push(id);
+  log(s,'HOLD: '+p.cs);
+  return true;
+}
+function releaseHold(s, id){
+  const p=s.planes[id]; if(!p||p.state!=='hold') return false;
+  p.state='approach'; p.holdT=0;
+  const i=s.holdQ.indexOf(id); if(i>=0) s.holdQ.splice(i,1);
+  p.x=SPAWN_MAX; p.y=p.targetRow;
+  if(p.runway) s.queues[p.runway].push(id);   // rejoin at END of runway queue (hold cost)
+  log(s,'REJOIN: '+p.cs+' (hold cost paid)');
+  return true;
+}
+function select(s,id){ s.selected = (s.selected===id)?null:id; if(s.selected!==null) advanceHint(s, 'select'); }
+
+function log(s,txt){ s.events.unshift({t:s.tick, txt}); if(s.events.length>6) s.events.pop(); }
+
+// ---------- sim step (one tick; deterministic) ----------
+function step(s){
+  if(s.phase!=='play') return;
+  s.tick++;
+  // spawn
+  if(s.spawnQ.length && s.tick>=s.spawnNext){
+    const p=s.spawnQ.shift();
+    s.spawnNext = s.spawnQ.length ? s.spawnQ[0].spawnAt : Infinity;
+    p.wait=false;                            // NOW the plane is on the approach
+    s.queues[p.runway].push(p.id);           // the queue IS the plan (spec §2)
+    s.selected=null; sfx.spawn();
+    log(s,'ARRIVAL '+p.cs+' → '+p.runway+' (fuel '+p.fuel+')');
+    if(s.L.hint && !s.guided){ s.guided=true; setHint(s,{txt:'CLICK THE PLANE TO SELECT IT', target:'plane:'+p.id}); }
+  }
+  s.runwayBusy.A=Math.max(0,s.runwayBusy.A-1); s.runwayBusy.B=Math.max(0,s.runwayBusy.B-1);
+  // planes
+  for(const p of s.planes){
+    if(p.landed || p.wait) continue;
+    p.fuel--;
+    if(p.state==='rolling'){
+      p.x--;
+      if(p.x<=ROLL_END){ p.landed=true; p.state='landed'; landPlane(s,p); }
+      continue;
+    }
+    if(p.fuel<=0){ s.incidents++; log(s,'INCIDENT: '+p.cs+' FUEL OUT'); sfx.incident();
+      p.landed=true; removeFromQueues(s,p); checkFail(s); continue; }
+    if(p.state==='hold'){
+      p.holdT++;
+      if(p.holdT>=12){ releaseHold(s,p.id); }
+      continue;
+    }
+    if(p.state==='around'){
+      // go-around: climb away right, then rejoin short-final (cost ~18-20 ticks)
+      if(p.y > p.targetRow-6) p.y--;
+      p.x++;
+      if(p.x>=44){ p.state='approach'; p.y=p.targetRow; log(s,'REJOIN '+p.cs); }
+      continue;
+    }
+    // approach: move toward targetRow then left
+    if(p.y!==p.targetRow){ p.y += p.y<p.targetRow?1:-1; }
+    else { p.x--; }
+    if(p.x<=THRESH && p.y===p.targetRow){
+      const busy = s.runwayBusy[p.runway]>0;
+      const front = isFront(s,p);
+      if(front && !busy){
+        p.state='rolling'; s.runwayBusy[p.runway]=BUSY_TICKS;
+        log(s,'TOUCHDOWN '+p.cs+' RWY '+p.runway);
+      } else {
+        goAround(s,p);
+      }
+    }
+  }
+  // near-miss detection (drama log only; lanes are single-stream so structural collision is impossible)
+  for(let i=0;i<s.planes.length;i++){ const a=s.planes[i]; if(a.landed) continue;
+    for(let j=i+1;j<s.planes.length;j++){ const b=s.planes[j]; if(b.landed) continue;
+      const key=i+':'+j;
+      if(Math.abs(a.x-b.x)<=1 && Math.abs(a.y-b.y)<=1 && !s.nearMissPairs[key]){
+        s.nearMissPairs[key]=true; log(s,'NEAR-MISS '+a.cs+'/'+b.cs);
+      }
+    }
+  }
+  const crit = s.planes.filter(p=>!p.landed && p.fuel>0 && p.fuel < p.minimal*0.25).length;
+  s.critical = crit;
+  if(crit>0 && s.tick - s.lastWarning > 40){ s.lastWarning=s.tick; sfx.warning(); }
+  if(crit===0) s.lastWarning=0;
+  if(s.phase==='play' && s.spawnQ.length===0 && s.planes.every(p=>p.landed)){
+    s.phase='won'; s.flash={txt:'AIRPORT CLEARED',t:0,color:'#3ee06a'}; sfx.win();
+    const slacks=s.planes.filter(p=>p.slack!==null).map(p=>p.slack).sort((a,b)=>a-b);
+    s.slackStats = slacks.length? {p95: slacks[Math.floor(slacks.length*0.95)], med: slacks[Math.floor(slacks.length/2)], min: slacks[0]} : null;
+  }
+}
+function goAround(s,p){
+  p.state='around'; s.goArounds++;
+  if(!isFront(s,p) && s.runwayBusy[p.runway]>0) log(s,'GO AROUND '+p.cs+' (runway busy)');
+  else if(!isFront(s,p)) log(s,'GO AROUND '+p.cs+' (not next in order)');
+  else log(s,'GO AROUND '+p.cs);
+  sfx.goaround();
+}
+function landPlane(s,p){
+  p.slack = Math.max(0, p.fuel);          // ticks of fuel remaining at touchdown = spec §1.2 slack
+  s.landings++; s.score += 100;
+  if(p.fuel >= p.minimal*0.4){ s.score+=50; p.clean=true; }
+  removeFromQueues(s,p);
+  advanceHint(s, 'landed');
+  s.flash={txt:'TOUCHDOWN '+p.cs, t:0, color:'#3ee06a'};
+  sfx.touchdown();
+}
+function removeFromQueues(s,p){
+  for(const k of ['A','B']) { const q=s.queues[k]; const i=q.indexOf(p.id); if(i>=0) q.splice(i,1); }
+  const h=s.holdQ.indexOf(p.id); if(h>=0) s.holdQ.splice(h,1);
+}
+function checkFail(s){ if(s.incidents>=3){ s.phase='failed'; s.flash={txt:'3 INCIDENTS — LEVEL FAILED',t:0,color:'#ff6060'}; sfx.fail(); } }
+
+function setHint(s,h){ s.hint=h; }
+
+// ---------- hints (L1 onboarding, spec §2 mitigation) ----------
+function advanceHint(s, why){
+  if(!s.L.hint) return;
+  const h=s.hint; if(!h) return;
+  if(h.target && h.target.startsWith('plane:')){
+    const pid=+h.target.slice(6);
+    if(why==='select' && s.selected===pid){
+      setHint(s,{txt:'NOW CLICK ITS CHIP BELOW — MAKE IT NEXT', target:'chip:'+pid});
+    }
+  } else if(h.target && h.target.startsWith('chip:')){
+    const pid=+h.target.slice(5);
+    if((why==='chip' || why==='landed') && (isFront(s,s.planes[pid]) || s.planes[pid].landed)){
+      const next=s.planes.find(p=>!p.landed && p.id!==pid);
+      if(next) setHint(s,{txt:'CLICK THE NEXT PLANE', target:'plane:'+next.id});
+      else setHint(s,null);
+    }
+  }
+}
+
+// ---------- bot (greedy; single code path via the same actions) ----------
+function botTick(s){
+  if(s.phase!=='play') return;
+  for(const id of [...s.holdQ]){ const p=s.planes[id]; if(p.fuel < p.minimal*0.5) releaseHold(s,id); }
+  for(const p of s.planes){
+    if(p.landed||p.state!=='approach') continue;
+    const q=queueOf(s,p); if(!q) continue;
+    const other = p.runway==='A'?'B':'A';
+    if(s.L.rwys.includes(other) && q.length - s.queues[other].length >= 2 && p.fuel > p.minimal*0.6){
+      assign(s,p.id,other);
+    }
+  }
+  for(const r of s.L.rwys){
+    const q=s.queues[r]; if(q.length<2) continue;
+    let minId=q[0], minF=s.planes[q[0]].fuel;
+    for(const id of q){ const f=s.planes[id].fuel; if(f<minF){ minF=f; minId=id; } }
+    if(q[0]!==minId) makeNext(s,minId);
+  }
+}
+
+// ---------- rendering ----------
+function rrect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function px(x){ return x*CELL; }
+function draw(){
+  const s=S;
+  ctx.fillStyle='#051018'; ctx.fillRect(0,0,900,640);
+  ctx.strokeStyle='rgba(45,110,140,0.10)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let x=0;x<=W;x+=5){ ctx.moveTo(px(x),0); ctx.lineTo(px(x),480); }
+  for(let y=0;y<=H;y+=5){ ctx.moveTo(0,px(y)); ctx.lineTo(900,px(y)); }
+  ctx.stroke();
+  for(const r of s.L.rwys){ drawRunway(r); }
+  if(s.L.hold){ drawHold(); }
+  for(const p of s.planes) if(!p.landed && !p.wait) drawPlane(p);
+  if(s.flash && s.flash.t<50){
+    ctx.globalAlpha=1-s.flash.t/50;
+    ctx.fillStyle=s.flash.color||'#ffffff'; ctx.font='bold 22px monospace'; ctx.textAlign='center';
+    ctx.fillText(s.flash.txt,450,240); ctx.globalAlpha=1;
+  }
+  if(s.hint && s.hint.txt){
+    ctx.globalAlpha=0.6+0.4*Math.sin(s.tick*0.4);
+    ctx.fillStyle='#ffffff'; ctx.font='bold 15px monospace'; ctx.textAlign='center';
+    ctx.fillText(s.hint.txt,450,460);
+    ctx.globalAlpha=1;
+  }
+  drawHUD();
+  drawStrip();
+  if(s.phase==='won') drawBanner('AIRPORT CLEARED', s.level<4 ? 'LEVEL '+(s.level+1)+' NEXT — click to continue (or R)' : 'FULL RAMP CLEARED — R to replay');
+  if(s.phase==='failed') drawBanner('3 INCIDENTS — LEVEL FAILED', 'CLICK TO RESTART (R)');
+}
+function drawRunway(r){
+  const y=px(RWY_INFO[r].row);
+  ctx.fillStyle='#132936'; ctx.fillRect(px(RWY_X0),y-5,px(RWY_X1-RWY_X0),10);
+  ctx.strokeStyle='#2c4a58'; ctx.lineWidth=1; ctx.setLineDash([8,6]);
+  ctx.beginPath(); ctx.moveTo(px(RWY_X0),y); ctx.lineTo(px(RWY_X1),y); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#4dd7ff';
+  for(let i=0;i<3;i++){ ctx.fillRect(px(THRESH)+i*6, y-4, 3, 8); }
+  ctx.fillStyle='#3f7a8f'; ctx.font='9px monospace'; ctx.textAlign='left';
+  ctx.fillText(RWY_INFO[r].label, px(RWY_X0), y-10);
+}
+function drawHold(){
+  const c=HOLD_C, x=px(c.x), y=px(c.y);
+  ctx.strokeStyle='#ffb020'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+  ctx.beginPath(); ctx.arc(x,y,20,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#ffb020'; ctx.font='9px monospace'; ctx.textAlign='center'; ctx.fillText('HOLD',x,y-26);
+}
+function drawPlane(p){
+  const sel = S.selected===p.id;
+  const crit = p.fuel>0 && p.fuel < p.minimal*0.25;
+  let x=px(p.x), y=px(p.y);
+  if(p.state==='hold'){ const c=HOLD_C, a=p.holdT*(Math.PI*2/12); x=px(c.x)+Math.cos(a)*20; y=px(c.y)+Math.sin(a)*14; }
+  ctx.save();
+  if(p.state==='around') ctx.globalAlpha=0.5;
+  ctx.fillStyle = crit ? '#ff4040' : (p.state==='hold' ? '#ffb020' : '#4dd7ff');
+  rrect(x-8,y-5,16,10,3); ctx.fill();
+  ctx.fillStyle='#eaffff'; ctx.fillRect(x-2,y-1,8,2);
+  if(sel){
+    const r=8+2*Math.sin(S.tick*0.5);
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(x,y,r+6,0,Math.PI*2); ctx.stroke();
+  }
+  ctx.restore();
+  const fw=Math.max(0,p.fuel/p.minimal);
+  ctx.fillStyle='#0a1a24'; ctx.fillRect(x-9,y-12,18,3);
+  ctx.fillStyle = crit?'#ff4040':(fw<0.5?'#ffb020':'#3ee06a');
+  ctx.fillRect(x-9,y-12,Math.max(1,18*fw),3);
+  ctx.fillStyle=crit?'#ff6060':'#9fd8e8'; ctx.font='9px monospace'; ctx.textAlign='center';
+  ctx.fillText(p.cs+(p.state==='around'?' ⇡GA':''), x, y-16);
+  if(p.state==='rolling'){ ctx.fillStyle='#3ee06a'; ctx.font='bold 9px monospace'; ctx.fillText('▼', x, y+16); }
+}
+function drawHUD(){
+  const s=S;
+  ctx.textAlign='left'; ctx.font='12px monospace';
+  ctx.fillStyle='#3f7a8f'; ctx.fillText('LEVEL '+s.level+' · '+s.L.name, 12, 16);
+  ctx.fillStyle='#9fd8e8';
+  ctx.fillText('T+'+s.tick+'  ('+(s.tick/TPS).toFixed(1)+'s)', 12, 32);
+  ctx.textAlign='right';
+  ctx.fillStyle=s.incidents>=2?'#ff6060':'#9fd8e8';
+  ctx.fillText('INCIDENTS '+s.incidents+'/3', 888, 16);
+  ctx.fillStyle='#ffb020'; ctx.fillText('GO-AROUNDS '+s.goArounds, 888, 32);
+  ctx.fillStyle=s.critical>0?'#ff4040':'#9fd8e8'; ctx.fillText('FUEL CRITICAL '+s.critical, 888, 48);
+  ctx.fillStyle='#3ee06a'; ctx.fillText('LANDED '+s.landings+'/'+s.L.planes+' · SCORE '+s.score, 888, 64);
+  ctx.textAlign='left'; ctx.font='10px monospace';
+  s.events.slice(0,4).forEach((e,i)=>{ ctx.fillStyle='rgba(159,216,232,'+(0.85-0.15*i)+')'; ctx.fillText(e.txt, 12, 52+i*13); });
+}
+function drawStrip(){
+  const s=S, y0=486;
+  ctx.fillStyle='#08141d'; ctx.fillRect(0,480,900,160);
+  ctx.strokeStyle='#143a4a'; ctx.beginPath(); ctx.moveTo(0,480); ctx.lineTo(900,480); ctx.stroke();
+  ctx.font='11px monospace'; ctx.textAlign='left';
+  const cols = s.L.rwys.length? s.L.rwys : ['A'];
+  const cw = 880 / cols.length;
+  cols.forEach((r,ci)=>{
+    const x0 = 10 + ci*cw;
+    ctx.fillStyle='#3f7a8f'; ctx.fillText(RWY_INFO[r].label+' — CLICK A CHIP TO MAKE IT NEXT', x0, y0+14);
+    const q=s.queues[r];
+    if(!q.length){ ctx.fillStyle='#2a4a58'; ctx.fillText('(clear)', x0, y0+34); }
+    q.forEach((id,qi)=>{
+      const p=s.planes[id]; if(!p) return;
+      const x=x0, y=y0+22+qi*26;
+      const front = qi===0;
+      const crit = p.fuel>0 && p.fuel < p.minimal*0.25;
+      const sel = s.selected===id;
+      ctx.fillStyle = sel ? '#12303e' : '#0b2230';
+      rrect(x,y,Math.min(cw-20,240),22,4); ctx.fill();
+      ctx.strokeStyle = front? '#3ee06a' : (crit?'#ff4040':'#1d4a5e'); ctx.lineWidth=front?2:1;
+      ctx.beginPath(); rrect(x,y,Math.min(cw-20,240),22,4); ctx.stroke();
+      if(front){ ctx.fillStyle='#3ee06a'; ctx.font='bold 9px monospace'; ctx.fillText('NEXT', x+6, y+15); }
+      ctx.fillStyle=crit?'#ff6060':'#c8ecf5'; ctx.font='bold 11px monospace';
+      ctx.fillText(p.cs+'  '+p.fuel+'t', x+(front?44:8), y+15);
+      const bw=Math.min(cw-110,90); const fw=Math.max(0,p.fuel/p.minimal);
+      ctx.fillStyle='#0a1a24'; ctx.fillRect(x+(front?120:84),y+7,bw,4);
+      ctx.fillStyle=crit?'#ff4040':(fw<0.5?'#ffb020':'#3ee06a');
+      ctx.fillRect(x+(front?120:84),y+7,Math.max(1,bw*fw),4);
+    });
+  });
+  if(s.L.hold){
+    ctx.fillStyle='#ffb020'; ctx.fillText('HOLD', 10, y0+130);
+    if(s.holdQ.length){ ctx.fillStyle='#8fa8b5'; ctx.font='10px monospace';
+      ctx.fillText(s.holdQ.map(id=>s.planes[id].cs).join(' · '), 52, y0+130);
+    } else { ctx.fillStyle='#2a4a58'; ctx.fillText('(empty — select a plane and click the HOLD circle)', 52, y0+130); }
+  }
+  ctx.fillStyle='#3f7a8f'; ctx.font='10px monospace'; ctx.textAlign='left';
+  ctx.fillText('click plane → select · click chip → make next · click runway → reroute · click HOLD circle → hold', 10, 632);
+}
+function drawBanner(title, sub){
+  ctx.fillStyle='rgba(4,16,26,0.85)'; ctx.fillRect(200,210,500,110);
+  ctx.strokeStyle='#2c7a94'; ctx.lineWidth=2; ctx.strokeRect(200,210,500,110);
+  ctx.fillStyle=title.startsWith('3 INCIDENTS')?'#ff6060':'#3ee06a'; ctx.font='bold 26px monospace'; ctx.textAlign='center';
+  ctx.fillText(title,450,256);
+  ctx.fillStyle='#9fd8e8'; ctx.font='13px monospace';
+  ctx.fillText(sub,450,282);
+  if(S.slackStats){ ctx.fillStyle='#ffb020';
+    ctx.fillText('SLACK p95/med/min: '+S.slackStats.p95+'/'+S.slackStats.med+'/'+S.slackStats.min+' ticks',450,304); }
+}
+
+// ---------- input ----------
+cv.addEventListener('click', e=>{
+  const s=S; if(!s) return;
+  if(s.phase==='won'){ nextLevel(); return; }
+  if(s.phase==='failed'){ restart(); return; }
+  const r=cv.getBoundingClientRect();
+  const mx=(e.clientX-r.left)*(900/r.width), my=(e.clientY-r.top)*(640/r.height);
+  for(let i=s.planes.length-1;i>=0;i--){ const p=s.planes[i];
+    if(p.landed || p.wait) continue;
+    let x=px(p.x), y=px(p.y);
+    if(p.state==='hold'){ const c=HOLD_C,a=p.holdT*(Math.PI*2/12); x=px(c.x)+Math.cos(a)*20; y=px(c.y)+Math.sin(a)*14; }
+    if(Math.abs(mx-x)<14 && Math.abs(my-y)<14){ select(s,p.id); return; }
+  }
+  if(s.L.hold && s.selected!==null && Math.hypot(mx-px(HOLD_C.x), my-px(HOLD_C.y))<26){ sendHold(s,s.selected); return; }
+  if(s.selected!==null){
+    for(const r of s.L.rwys){
+      if(my>=px(RWY_INFO[r].row)-8 && my<=px(RWY_INFO[r].row)+8 && mx>=px(RWY_X0) && mx<=px(RWY_X1)){
+        if(assign(s,s.selected,r)) s.selected=null;
+        return;
+      }
+    }
+  }
+  if(my>480){
+    const cols=s.L.rwys.length?s.L.rwys:['A'], cw=880/cols.length;
+    for(let ci=0;ci<cols.length;ci++){
+      const r=cols[ci], x0=10+ci*cw;
+      const q=s.queues[r];
+      let chipHit=false;
+      for(let qi=0;qi<q.length;qi++){
+        const x=x0, y=486+22+qi*26, w=Math.min(cw-20,240), h=22;
+        if(mx>=x&&mx<=x+w&&my>=y&&my<=y+h){ makeNext(s,q[qi]); chipHit=true; break; }
+      }
+      if(!chipHit && s.selected!==null && assign(s,s.selected,r)) s.selected=null;
+    }
+    return;
+  }
+  s.selected=null;
+});
+cv.addEventListener('contextmenu', e=>{ e.preventDefault(); if(S) S.selected=null; });
+window.addEventListener('keydown', e=>{
+  if(e.code==='Space'){ e.preventDefault(); paused=!paused; }
+  if(e.code==='KeyR') restart();
+  if(e.code==='KeyM'){ muted=!muted; }
+  if(e.code==='Enter' && S && S.phase==='won') nextLevel();
+});
+
+// ---------- level flow ----------
+function restart(){ S=makeState(S?S.level:1); }
+function nextLevel(){ S=makeState(Math.min(4,S.level+1)); }
+function start(){ S=makeState(1); }
+
+// ---------- responsive fit (any window size: board browsers + headless) ----------
+function fit(){
+  const s=Math.min(window.innerWidth/900, window.innerHeight/640);
+  cv.style.width=(900*s)+'px'; cv.style.height=(640*s)+'px';
+}
+window.addEventListener('resize', fit); fit();
+
+// ---------- game loop ----------
+function loop(){
+  requestAnimationFrame(loop);
+  if(!S) return;
+  if(!paused && S.phase==='play'){
+    let n = speedMul>=1? Math.round(speedMul) : 1;
+    while(n-->0){ step(S); if(S.phase!=='play') break; }
+  }
+  if(S.flash) S.flash.t++;
+  draw();
+}
+start(); requestAnimationFrame(loop);
+
+// ---------- hidden test API (single code path: UI and tests share these) ----------
+window.LO = {
+  get state(){ return S; },
+  levels: LEVELS,
+  setup: n=>{ S=makeState(n); },
+  step: ()=>step(S),
+  fastForward: n=>{ for(let i=0;i<n && S.phase==='play';i++) step(S); },
+  select, assign, makeNext, sendHold, releaseHold,
+  botTick: ()=>botTick(S),
+  botRun: n=>{ const lim=n||9999; for(let i=0;i<lim && S.phase==='play';i++){ botTick(S); step(S); } return S; },
+  snapshot: ()=>({
+    level:S.level, tick:S.tick, phase:S.phase, incidents:S.incidents, goArounds:S.goArounds,
+    landings:S.landings, score:S.score, nearMisses:Object.keys(S.nearMissPairs).length,
+    slackStats:S.slackStats,
+    planes:S.planes.map(p=>({id:p.id,cs:p.cs,state:p.state,fuel:p.fuel,runway:p.runway,
+      x:p.x,y:p.y,wait:p.wait,slack:p.slack,minimal:p.minimal,clean:!!p.clean})),
+    queues:{A:[...S.queues.A],B:[...S.queues.B]}, holdQ:[...S.holdQ],
+  }),
+};
+</script>
+</body>
+</html>
