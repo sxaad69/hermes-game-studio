@@ -48,8 +48,13 @@ Every concept passes red/blue debate with these mandatory questions:
 - Asset fit: does the hybrid pipeline produce consistent art?
 - Fun-risk: is the fun driver a mechanic we can implement and tune, or
   a vibe we cannot?
+- MONETIZATION (board mandate, Task 7): what is the revenue model (rewarded
+  ads at natural breaks, premium, sponsorship)? Does the mechanic support it
+  (hints, restart points, session length, replay)? Portal earning benchmarks
+  for the genre? "Ads later, we'll figure it out" = PARK until a model exists.
 A single hard NO on originality or testability = automatic KILL. A gate that
-passes 100% is not a gate.
+passes 100% is not a gate. Monetization is a gate, not an afterthought:
+no concept passes without a revenue model + genre benchmarks.
 
 ## CEO generation priority
 1. Sprint/work decomposition of in-flight games
