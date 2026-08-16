@@ -56,6 +56,18 @@ A single hard NO on originality or testability = automatic KILL. A gate that
 passes 100% is not a gate. Monetization is a gate, not an afterthought:
 no concept passes without a revenue model + genre benchmarks.
 
+## Early-prototype feeler (board mandate, Task 11 — the SCOPE GUARDRAIL)
+The feeler before any full build is a MOST-VIABLE prototype, NOT a slice:
+- **≤3 elements**: ONE core verb + ONE primitive interaction + ONE readable hook.
+- **≤5 DECISIONS.md entries** — past 5 = you're building a slice, CUT.
+- **NO** spec constants, tiered levels, solvers, sound (one debug tone max),
+  test harnesses. The spec's numbers are W1 fodder; the feeler judges the LOOP.
+- **If it takes more than ~15-20 min of actual work, the scope is too big —
+  cut features, don't extend time.** The runtime cap is an upper bound, never
+  the target.
+- Single-file HTML greybox (opens in any browser) — no engine, no build step.
+- Output: PULSE verdict → product overview slice → product verdict; or FLAT → kill.
+
 ## CEO generation priority
 1. Sprint/work decomposition of in-flight games
 2. New concept generation from whitespace scan (games-research topic 4)
