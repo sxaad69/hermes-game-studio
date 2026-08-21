@@ -57,7 +57,7 @@ playtest session, keep the tunnel running and send the current URL to the board.
 Unit file: /etc/systemd/system/cf-games.service.
 
 ## Size discipline
-- Godot web runtime is ~25-35MB raw; brotli-compressed serving + asset
-  compression (texture VRAM/Ogg audio) + stripping unused modules gets a 2D
-  game under the 20MB initial-load target.
+- No hard size cap (board decision 2026-08-21: 3D allowed). Brotli-compressed
+  serving + texture/audio compression + module stripping still mandatory;
+  gate on first-load <10s on broadband rather than raw MB.
 - Verify with: `du -sh build/web && find build/web -type f | wc -l`

@@ -28,7 +28,7 @@ the human board judges only what agents cannot: **fun**.
 - Average playtime: **10+ min** (session-length hooks)
 - Day-1 retention: **10-15%**
 - Conversion (play ≥1 min): **80%+**
-- Build: **<20MB initial download** (hard cap 50MB), total <250MB, <1500 files
+- Build: **no hard size cap — 3D allowed**; first load <10s on broadband, total <250MB, <1500 files; compression discipline still applies
 - Load: **<10s**
 - PEGI12, no kid-targeted content, original (no clones/asset-flips — human QA)
 

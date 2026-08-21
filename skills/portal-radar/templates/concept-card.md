@@ -37,7 +37,7 @@ Name the specific moment of fun and whether it survives headless playtesting.>
 - <what needs a human fun-verdict>
 
 ## Build cost
-- <estimated effort: Godot 2D <1 week? <20MB export?>
+- <estimated effort: Godot <1-2 weeks (2D or low-poly 3D)? web load acceptable?>
 - <engine/tech notes: 2D vs 3D-lite, physics, netcode needed?>
 
 ## Asset plan

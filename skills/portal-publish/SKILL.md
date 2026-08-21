@@ -15,7 +15,7 @@ metadata:
 Takes a smoke-verified, human-fun-approved web build and ships it to portals.
 
 ## Pre-submission checklist (all must pass)
-- Build: initial download <50MB (target <20MB), total <250MB, <1500 files
+- Build: no hard size cap (3D allowed); first load <10s on broadband, total <250MB, <1500 files
 - Load <10s; lands directly in gameplay; onboarding skippable
 - PEGI12, no kid-targeted content, no external ads, no portal branding
 - Original (not a clone/reskin/asset flip): proven by assets.json provenance

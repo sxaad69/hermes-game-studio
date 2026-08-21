@@ -44,7 +44,7 @@ research proposes (evidence packs)
 Every concept passes red/blue debate with these mandatory questions:
 - Originality: is this a clone/reskin? (portal QA rejects those)
 - Testability: can we auto-verify it headless (solver/smoke-play)?
-- Build cost: Godot 2D <1 week, <20MB export?
+- Build cost: Godot <1-2 weeks (2D or low-poly 3D), export loads fast on web?
 - Asset fit: does the hybrid pipeline produce consistent art?
 - Fun-risk: is the fun driver a mechanic we can implement and tune, or
   a vibe we cannot?
