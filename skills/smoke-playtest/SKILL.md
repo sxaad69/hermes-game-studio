@@ -19,6 +19,23 @@ The factory's automated test gate between build and human fun-verdict.
 - Game served over HTTP(S) (nginx on the VPS, or a local port)
 - Playwright MCP configured (it connects to the CDP endpoint)
 
+## Fallback: NO-PLAYWRIGHT BOXES (verified 2026-08-21, spot-the-lie feeler)
+If Playwright MCP / pip playwright are absent, raw CDP works with zero installs
+(Node >=22 has native WebSocket and fetch):
+1. Launch a DEDICATED headless chromium:
+   `/usr/bin/chromium-browser --headless=new --remote-debugging-port=<rand> --window-size=1280,900 --no-sandbox --disable-gpu --user-data-dir=/tmp/qa-$RANDOM about:blank`
+2. `GET http://127.0.0.1:<port>/json/list` — **select the target with `type==="page"`,
+   NEVER targets[0]** (snap chromium lists its extension background_page first;
+   attaching to it silently fails all Runtime.evaluate with ReferenceError).
+3. Drive via WebSocket: `Page.navigate`, poll for game-ready flag,
+   `Input.dispatchMouseEvent` mousePressed+mouseReleased pairs for REAL clicks,
+   `Runtime.evaluate` (returnByValue) for state asserts,
+   `Page.captureScreenshot` for evidence, subscribe to
+   `Runtime.consoleAPICalled`(error)/`Runtime.exceptionThrown` for console health.
+4. For canvas games exposing a debug hook, have IT compute viewport coords from
+   `getBoundingClientRect()` so clicks land through CSS scaling.
+Reference implementation: github.com/sxaad69/spot-the-lie (playtest.js, master).
+
 ## Procedure
 1. Navigate to the game URL.
 2. Assert load completes in <10s; record console errors.
