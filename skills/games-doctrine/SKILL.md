@@ -60,8 +60,15 @@ no concept passes without a revenue model + genre benchmarks.
 The feeler before any full build is a MOST-VIABLE prototype, NOT a slice:
 - **≤3 elements**: ONE core verb + ONE primitive interaction + ONE readable hook.
 - **≤5 DECISIONS.md entries** — past 5 = you're building a slice, CUT.
-- **NO** spec constants, tiered levels, solvers, sound (one debug tone max),
-  test harnesses. The spec's numbers are W1 fodder; the feeler judges the LOOP.
+- **NO** spec constants, tiered levels, solvers, test harnesses. The spec's numbers
+  are W1 fodder; the feeler judges the LOOP.
+- **AUDIO/JUICE REQUIRED-BY-OPTION (board amendment 2026-08-21 — "feelers must carry
+  vibe")**: a feeler SHOULD ship with ONE ambient music loop + core-action SFX stubs +
+  minimal screen-shake/hit-flash juice on the core verb. Procedural WebAudio / jsfxr-
+  style synthesis inside the single HTML file (no asset downloads, no build step).
+  This is polish on the ONE verb, NOT extra elements: the ≤3 elements / ≤5 DECISIONS /
+  ~15-20min caps are UNCHANGED. Silence is allowed to kill a pulse verdict — a loop
+  can verify correct and still be dead to play (LIE TO ME, pass 21).
 - **If it takes more than ~15-20 min of actual work, the scope is too big —
   cut features, don't extend time.** The runtime cap is an upper bound, never
   the target.
