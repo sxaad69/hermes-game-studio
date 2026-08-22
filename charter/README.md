@@ -28,17 +28,31 @@ the human board judges only what agents cannot: **fun**.
 - Average playtime: **10+ min** (session-length hooks)
 - Day-1 retention: **10-15%**
 - Conversion (play ≥1 min): **80%+**
-- Build: **no hard size cap — 3D allowed**; first load <10s on broadband, total <250MB, <1500 files; compression discipline still applies
+- Build: **no hard size cap — 3D allowed**; first load <10s on broadband; compression
+  discipline still applies. NO storage/file-count caps: all artifacts (code + assets)
+  live in the game's GitHub repo — the VPS is scratch, GitHub is truth.
 - Load: **<10s**
 - PEGI12, no kid-targeted content, original (no clones/asset-flips — human QA)
 
 ## Doctrine
-- **Idle is a bug.** Research proposes → kill-gate kills → you (human) judge fun →
-  portal metrics decide. Never-idle continues.
+- **Idle is a bug.** Research proposes → kill-gate kills → design gates feel → you
+  (human) judge fun → portal metrics decide. Never-idle continues: the dispatcher
+  never idles >4h — out of new ideas is not out of work (see Boneyard, below).
 - **3-worker hard cap.** 4GB/2vCPU VPS. Never exceed 3 concurrent workers.
-- **No local models.** Inference = opencode-go deepseek-flash. Nothing runs on-box.
+- **No local models.** Inference = opencode-go ox-alpha (fallback OpenRouter). Nothing runs on-box.
 - **Kill-first.** Every concept passes a red/blue gate before a build card exists.
   A gate that passes 100% is not a gate.
+- **Design gates feel.** No build spec fires without a design-co-signed FEEL
+  section (art/audio/drama direction) on the concept card. A game whose soul was
+  decided by market data alone is dead on arrival — see LIE TO ME postmortem 2026-08-21.
+- **Repo law.** Every game = its own GitHub repo from W1 start; code AND all assets
+  pushed continuously; `assets.json` provenance manifest in-repo. Done means remote
+  tip == local tip. Feeler/playtest distribution = GitHub Pages from that repo.
+  The pipeline-keeper cron audits remotes hourly and auto-fixes drift.
+- **Boneyard.** Every KILLed/PARKed/board-rejected concept is catalogued in
+  `wiki/boneyard.md` with rejection reason + revival criteria. When the idea pool
+  is empty, workers mine the boneyard against fresh radar data — revive with a
+  twist or formally bury with a written reason. Dead concepts are inventory, not trash.
 - **You are the fun-judge.** Every game before portal submission: playtest URL →
   your verdict. Your only recurring role, ~15 min/game.
 - **Curated skills first, full catalogs after 2-3 shipped games.**
@@ -49,9 +63,20 @@ the human board judges only what agents cannot: **fun**.
 
 ## Roles (reuse existing 7 profiles, retargeted)
 - research → 6-topic game research program + portal radar
-- ceo → concept generation, kill-gates, portfolio verdicts
-- design → assets, level-design, game-feel, UI
+- ceo → concept generation, kill-gates, portfolio verdicts, pipeline orchestration
+- design → **experience owner from concept stage**: FEEL sections on every card
+  (art/audio/drama direction), juice spec for feelers, asset packs at build
 - engineering → Godot engine skills, build/export pipeline
 - qa → smoke-playtest, QA skills, portal metric checks
 - marketing → covers, metadata, portal listings
 - strategy → scoring, whitespace scans, portfolio mix
+
+## Pipeline (v2 constitution — 2026-08-21)
+```
+radar → concept cards → KILL-GATE → ★DESIGN GATE★ → board pick
+→ W1 feeler (vibe floor) → QA → PULSE GATE → full build W2-W5
+→ fun-verdict → portal submit
+```
+★DESIGN GATE★: design reads the surviving cards and co-signs a FEEL section
+(pillars: art direction, audio direction, drama beats, the ONE payoff moment).
+No FEEL signature → no build spec. Ceo may not skip it; the keeper cron checks it.
