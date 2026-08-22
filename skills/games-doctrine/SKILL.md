@@ -66,6 +66,24 @@ A single hard NO on originality or testability = automatic KILL. A gate that
 passes 100% is not a gate. Monetization is a gate, not an afterthought:
 no concept passes without a revenue model + genre benchmarks.
 
+## ★VISUAL BAR★ (applies to EVERY game — board mandate 2026-08-22)
+Board verdict on our first 3D build vs Shadowmatic: "ours looks like shit."
+The formula from studying the reference applies to all games forever:
+1. **THE ROOM, not a void** — every game ships in a dressed environment
+   (walls, props, palette). Two+ themed worlds minimum per game.
+2. **THE LIGHT** — one dramatic key light with visible falloff/cone; edges
+   fall to darkness. Flat ambient lighting = automatic art-pass rejection.
+3. **THE MATERIALS** — PBR variation on every visible object (metalness/
+   roughness/pattern decals via AI-generated textures). Raw unshaded
+   primitives may exist only behind the scenes, never on screen.
+4. **THE PAYOFF SURFACE** — the mechanic's core moment gets a dedicated,
+   centered stage (projection wall, shop counter, case file desk).
+5. **POST + AUDIO** — bloom on payoff flash, vignette, film grain; per-room
+   ambient arrangement (doctrine vibe floor).
+Enforcement: ★DESIGN GATE★ reviews every concept against this checklist;
+no FEEL signature without it. Existing builds get retroactive art passes
+in priority order: SHADOW FORM (running) → SHELF LIFE → SPOT THE LIE v1.
+
 ## ★DESIGN GATE★ (mandatory between kill-gate and build spec)
 The board killed LIE TO ME's greybox as DULL on 2026-08-21 while QA called the
 same build "drama LANDS" — the pipeline had shipped a game whose soul was decided
