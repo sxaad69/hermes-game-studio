@@ -85,6 +85,10 @@ entirely by market data. Never again:
 - Code AND all assets (art/audio/fonts/SFX) live in `<repo>/assets/` with the
   `assets.json` provenance manifest. NOTHING asset-wise lives server-only.
 - Push on every task completion. Playtests ship via GitHub Pages from the repo.
+- **Deploy verification (board mandate 2026-08-22):** after any Pages deploy,
+  verify EVERY file referenced by index.html returns HTTP 200 — especially
+  `.wasm`/`.pck`. Checking only index.html's title is how SPOT THE LIE shipped
+  a blank page for hours while its evidence pack said "0 console errors".
 - The pipeline-keeper cron audits hourly: missing remote / behind remote /
   orphan asset dirs → auto-fix task + Telegram alert.
 - Retroactive: `set-piece-master` must be rescued to GitHub (no remote as of
