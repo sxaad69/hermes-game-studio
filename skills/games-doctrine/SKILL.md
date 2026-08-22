@@ -85,6 +85,11 @@ entirely by market data. Never again:
 - Code AND all assets (art/audio/fonts/SFX) live in `<repo>/assets/` with the
   `assets.json` provenance manifest. NOTHING asset-wise lives server-only.
 - Push on every task completion. Playtests ship via GitHub Pages from the repo.
+- **Staging rule (board mandate 2026-08-22):** the pulse-passed feeler stays live
+  at the repo's Pages root until its full build passes board/design review.
+  Full-build WIP deploys go to a staging subpath (`/v1/`, `/v2/`, …) — NEVER
+  overwrite the root mid-construction (SPOT THE LIE lesson: board opened a
+  half-built export and saw empty rooms).
 - **Deploy verification (board mandate 2026-08-22):** after any Pages deploy,
   verify EVERY file referenced by index.html returns HTTP 200 — especially
   `.wasm`/`.pck`. Checking only index.html's title is how SPOT THE LIE shipped
