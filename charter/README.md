@@ -38,7 +38,9 @@ the human board judges only what agents cannot: **fun**.
 - **Idle is a bug.** Research proposes → kill-gate kills → design gates feel → you
   (human) judge fun → portal metrics decide. Never-idle continues: the dispatcher
   never idles >4h — out of new ideas is not out of work (see Boneyard, below).
-- **3-worker hard cap.** 4GB/2vCPU VPS. Never exceed 3 concurrent workers.
+- **Worker cap: 4** (raised from 3 on 2026-08-22 after headroom audit: 2 vCPU /
+  3.9GB RAM, ~200MB per worker, 2GB available). Guardrail: pipeline-keeper keeps
+  it at 3 whenever available RAM drops below 800MB. Never exceed 4 concurrent workers.
 - **No local models.** Inference = opencode-go ox-alpha (fallback OpenRouter). Nothing runs on-box.
 - **Kill-first.** Every concept passes a red/blue gate before a build card exists.
   A gate that passes 100% is not a gate.

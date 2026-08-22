@@ -36,7 +36,8 @@ research proposes (evidence packs)
 1. Finish -> pull next. Never wait for handoffs.
 2. Blocked on a human (credentials, money, out-of-scope) -> park as scheduled
    with ask-the-board + 4h default -> pull next.
-3. **3-worker hard cap** (4GB/2vCPU VPS). Never spawn a 4th. Surplus stays
+3. **Worker cap: 4** (raised 2026-08-22; RAM-guardrail: keeper holds it at 3
+    when available memory <800MB). Never spawn a 5th. Surplus stays
    ready/scheduled; the supervisor promotes parked cards as slots free.
 4. **No local models. Ever.** Inference = opencode-go ox-alpha (fallback: OpenRouter
    stealth/ox-alpha). Any need beyond it -> ask-the-board immediately.
