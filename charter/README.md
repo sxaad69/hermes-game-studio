@@ -53,8 +53,14 @@ the human board judges only what agents cannot: **fun**.
   `wiki/boneyard.md` with rejection reason + revival criteria. When the idea pool
   is empty, workers mine the boneyard against fresh radar data — revive with a
   twist or formally bury with a written reason. Dead concepts are inventory, not trash.
+- **Board absence protocol (2026-08-21).** The board has delegated ALL gate
+  decisions to the factory: PICK-GATEs resolve by ceo+strategy consensus,
+  PULSE GATEs by design+qa playthrough consensus, fun-verdicts likewise.
+  Ship without waiting. Every auto-decision is logged on the board with its
+  rationale; the board retains retroactive veto. Never block on human presence.
 - **You are the fun-judge.** Every game before portal submission: playtest URL →
-  your verdict. Your only recurring role, ~15 min/game.
+  your verdict — *or* the delegated consensus above when you are away.
+  Your recurring role stays ~15 min/game whenever you choose to show up.
 - **Curated skills first, full catalogs after 2-3 shipped games.**
 
 ## Assets
